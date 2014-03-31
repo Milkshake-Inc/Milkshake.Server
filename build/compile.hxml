@@ -1,0 +1,7 @@
+-cp src
+
+-lib js-kit
+
+-main MilkshakeServer
+
+-js bin/App.js
