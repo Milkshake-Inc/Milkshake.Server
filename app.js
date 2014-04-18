@@ -5,7 +5,14 @@ var express = require('express'),
     routes = require('./routes'),
 
     users = [],
-    rooms = ["default_room"];
+    rooms = [];
+
+    rooms["Default Room"] =
+        {
+            currentPlayers: 0,
+            maxPlayers: 10,
+            password: ""
+        }
 
 
 
@@ -52,21 +59,42 @@ var express = require('express'),
 //----------------------------------
     io.sockets.on('connection', function (socket) {
 
-        socket.join('default_room');
-        socket.x = 0;
-        socket.y = 0;
-        socket.room = 'default_room';
-        socket.broadcast.to(socket.room).emit('createPlayer', createPlayer(socket));
+        //joinRoom(socket, "Default Room", "");
 
-        socket.on('switchRoom', function(newRoom) 
+        socket.on('createRoom', function(newRoom) 
+        {
+            if(rooms.indexOf(newRoom.name) == -1)
+            {
+                rooms[newRoom.name] = 
+                {
+                    maxPlayers: newRoom.maxPlayers,
+                    password: newRoom.password,
+                    currentPlayers: 0
+                }
+            }
+
+            joinRoom(socket, newRoom.name, newRoom.password);
+        });
+
+        socket.on('getRooms', function(newRoom) 
+        {
+            var rooms = getRoomList();
+            socket.emit('roomList', rooms);
+        });
+
+        socket.on('joinRoom', function(newRoom) 
+        {
+            joinRoom(socket, newRoom.name, newRoom.password);
+        });
+
+        socket.on('leaveRoom', function(newRoom) 
         {
             leaveRoom(socket);
-            joinRoom(socket, newRoom);
         });
 
         socket.on('disconnect', function() 
         {
-            leaveRoom(socket);
+            if(socket.room != "") leaveRoom(socket);
         });
 
         socket.on('sendchat', function(message) 
@@ -76,29 +104,50 @@ var express = require('express'),
     });
 
 //----------------------------------
-//        Socket Handlers
+//        Functions
 //----------------------------------
 
-function createPlayer(socket) 
-{
-    return 
+    var createPlayer = function(socket) 
+    {
 
-}
+    }
 
-function joinRoom(socket, newRoom)
-{
-    socket.room = newRoom;
-    socket.join(socket.room);
-    socket.broadcast.to(socket.room).emit('createPlayer',
-    { 
-        id: socket.id,
-        x: socket.x,
-        y: socket.y
-    });
-}
+    var getRoomList = function()
+    {
+        var rList = [];
+        for (var key in rooms) 
+        {
+            rList.push({
+                name: key,
+                currentPlayers: rooms[key]["currentPlayers"],
+                maxPlayers: rooms[key]["maxPlayers"]
+            });
+        }
+        return rList;
+    }
 
-function leaveRoom(socket)
-{
-    socket.broadcast.to(socket.room).emit('destroyPlayer', socket.id);
-    socket.leave(socket.room);
-}
+    var joinRoom = function(socket, newRoom, password)
+    {
+        if(rooms[newRoom].password != password) return false;
+
+        socket.room = newRoom;
+        socket.join(socket.room);
+        rooms[socket.room].currentPlayers += 1;
+        socket.broadcast.to(socket.room).emit('playerJoinedRoom', {id: socket.id});
+        socket.emit('joinedRoom', {
+                name: socket.room,
+                currentPlayers: rooms[socket.room]["currentPlayers"],
+                maxPlayers: rooms[socket.room]["maxPlayers"]
+            });
+
+        return true;
+    }
+
+    var leaveRoom = function(socket)
+    {
+        socket.broadcast.to(socket.room).emit('playerLeftRoom', {id: socket.id});
+        socket.emit('leftRoom');
+        socket.leave(socket.room);
+        rooms[socket.room].currentPlayers -= 1;
+        socket.room = "";
+    }
