@@ -21,9 +21,9 @@ class SocketServer
 	
 	function onConnection(socket:Namespace) 
 	{
-		var user = new User();
+		var user:User = new User();
 		users.set(user.id, user);
-		socket.emit("Welcome", user);
-		console.log("socket connected");
+		socket.emit("user", user);
+		console.log("socket connected " + user.id);
 	}
 }
