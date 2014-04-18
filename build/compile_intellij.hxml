@@ -1,4 +1,0 @@
--main MilkshakeServer
--cp ../src
--lib js-kit
--js ../bin/App.js

@@ -7,7 +7,7 @@ module.exports = function (grunt) {
     grunt.initConfig({
         nodemon: {
                 dev: {
-                    script: 'bin/App.js',
+                    script: 'app.js',
                     options: {
                         args: ['dev'],
                         nodeArgs: ['--debug'],
