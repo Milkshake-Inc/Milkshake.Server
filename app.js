@@ -133,7 +133,7 @@ var express = require('express'),
     var joinRoom = function(socket, newRoom, password)
     {
         if(rooms[newRoom].password != password 
-            || rooms[socket.room].maxPlayers - rooms[socket.room].currentPlayers <= 0) return false;
+            || rooms[newRoom].maxPlayers - rooms[newRoom].currentPlayers <= 0) return false;
 
         socket.room = newRoom;
         socket.join(socket.room);
