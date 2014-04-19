@@ -4,13 +4,22 @@ var express = require('express'),
     io = require('socket.io').listen(server),
     routes = require('./routes'),
 
+    updateSpeed = 1000,
+
     users = [],
     rooms = [];
 
     rooms["Default Room"] =
         {
             currentPlayers: 0,
-            maxPlayers: 10,
+            maxPlayers: 2,
+            password: ""
+        }
+
+    rooms["Default Room 2"] =
+        {
+            currentPlayers: 0,
+            maxPlayers: 4,
             password: ""
         }
 
@@ -59,7 +68,8 @@ var express = require('express'),
 //----------------------------------
     io.sockets.on('connection', function (socket) {
 
-        //joinRoom(socket, "Default Room", "");
+        //joinRoom(socket, "Default Room 2", "");
+        socket.x = socket.y = 0;
 
         socket.on('createRoom', function(newRoom) 
         {
@@ -78,13 +88,12 @@ var express = require('express'),
 
         socket.on('getRooms', function(newRoom) 
         {
-            var rooms = getRoomList();
-            socket.emit('roomList', rooms);
+            socket.emit('roomList', {rooms: getRoomList()});
         });
 
         socket.on('joinRoom', function(newRoom) 
         {
-            joinRoom(socket, newRoom.name, newRoom.password);
+            if(!joinRoom(socket, newRoom.name, newRoom.password)) socket.emit('failedJoiningRoom');
         });
 
         socket.on('leaveRoom', function(newRoom) 
@@ -94,7 +103,7 @@ var express = require('express'),
 
         socket.on('disconnect', function() 
         {
-            if(socket.room != "") leaveRoom(socket);
+            if(socket.room != null) leaveRoom(socket);
         });
 
         socket.on('sendchat', function(message) 
@@ -106,11 +115,6 @@ var express = require('express'),
 //----------------------------------
 //        Functions
 //----------------------------------
-
-    var createPlayer = function(socket) 
-    {
-
-    }
 
     var getRoomList = function()
     {
@@ -128,7 +132,8 @@ var express = require('express'),
 
     var joinRoom = function(socket, newRoom, password)
     {
-        if(rooms[newRoom].password != password) return false;
+        if(rooms[newRoom].password != password 
+            || rooms[socket.room].maxPlayers - rooms[socket.room].currentPlayers <= 0) return false;
 
         socket.room = newRoom;
         socket.join(socket.room);
@@ -139,6 +144,12 @@ var express = require('express'),
                 currentPlayers: rooms[socket.room]["currentPlayers"],
                 maxPlayers: rooms[socket.room]["maxPlayers"]
             });
+        socket.broadcast.emit("refreshRoomList",  "test");
+
+        if(rooms[socket.room].maxPlayers - rooms[socket.room].currentPlayers <= 0)
+        {
+            startGame(socket.room);
+        }
 
         return true;
     }
@@ -149,5 +160,39 @@ var express = require('express'),
         socket.emit('leftRoom');
         socket.leave(socket.room);
         rooms[socket.room].currentPlayers -= 1;
-        socket.room = "";
+        socket.room = null;
+        socket.broadcast.emit("refreshRoomList", "test");
+    }
+
+    var startGame = function(roomName)
+    {
+        io.sockets.in(roomName).emit('startGame');
+        update(roomName);
+        rooms[roomName].interval = setInterval(update(roomName), updateSpeed);
+    }
+
+    var endGame = function(roomName)
+    {
+        io.sockets.in(roomName).emit('endGame');
+        clearInterval(rooms[roomName].interval);
+    }
+
+    var update = function(roomName)
+    {
+        io.sockets.in(roomName).emit('gameUpdate', { players: getPlayers });
+    }
+
+    var getPlayers = function(roomName)
+    {
+        var players = [];
+        var playersInRoom = io.sockets.clients(roomName);
+        for (var p in io.sockets.clients(roomName)) 
+        {
+            players.push({
+                id: playersInRoom[p].id,
+                x: playersInRoom[p].x,
+                y: playersInRoom[p].y
+            });
+        }
+        return players;
     }
