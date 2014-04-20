@@ -86,6 +86,11 @@ var express = require('express'),
             joinRoom(socket, newRoom.name, newRoom.password);
         });
 
+        socket.on('getSocketID', function()
+        {
+            socket.emit('socketID', { socketID: socket.id });
+        });
+
         socket.on('getRooms', function(newRoom) 
         {
             socket.emit('roomList', {rooms: getRoomList()});
@@ -106,9 +111,10 @@ var express = require('express'),
             if(socket.room != null) leaveRoom(socket);
         });
 
-        socket.on('sendchat', function(message) 
+        socket.on('updatePosition', function(position) 
         {
-            io.sockets.in(socket.room).emit('updatechat', socket.id, message);
+            socket.x = position.x;
+            socket.y = position.y;
         });
     });
 
@@ -161,14 +167,18 @@ var express = require('express'),
         socket.leave(socket.room);
         rooms[socket.room].currentPlayers -= 1;
         socket.room = null;
-        socket.broadcast.emit("refreshRoomList", "test");
+        socket.broadcast.emit("refreshRoomList");
+
+        //reset x,y
+        socket.x = 0;
+        socket.y = 0;
     }
 
     var startGame = function(roomName)
     {
         io.sockets.in(roomName).emit('startGame');
         update(roomName);
-        rooms[roomName].interval = setInterval(update(roomName), updateSpeed);
+        rooms[roomName].interval = setInterval(function() { update(roomName); }, updateSpeed);
     }
 
     var endGame = function(roomName)
@@ -179,14 +189,14 @@ var express = require('express'),
 
     var update = function(roomName)
     {
-        io.sockets.in(roomName).emit('gameUpdate', { players: getPlayers });
+        io.sockets.in(roomName).emit('gameUpdate', { players: getPlayers() });
     }
 
     var getPlayers = function(roomName)
     {
         var players = [];
         var playersInRoom = io.sockets.clients(roomName);
-        for (var p in io.sockets.clients(roomName)) 
+        for (var p in playersInRoom) 
         {
             players.push({
                 id: playersInRoom[p].id,
