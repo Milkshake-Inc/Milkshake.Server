@@ -1,8 +1,6 @@
 module.exports = function (grunt) {
 
-    grunt.loadNpmTasks('grunt-contrib-connect');
     grunt.loadNpmTasks('grunt-nodemon');
-    grunt.loadNpmTasks('grunt-open');
 
     grunt.initConfig({
         nodemon: {
