@@ -4,7 +4,7 @@ var express = require('express'),
     io = require('socket.io').listen(server),
     routes = require('./routes'),
 
-    updateSpeed = 1000,
+    updateSpeed = 128,
 
     users = [],
     rooms = [];
@@ -69,7 +69,9 @@ var express = require('express'),
     io.sockets.on('connection', function (socket) {
 
         //joinRoom(socket, "Default Room 2", "");
-        socket.x = socket.y = 0;
+        socket.position = { x: 0, y: 0 };
+        socket.velocity = { x: 0, y: 0 };
+        socket.rotation = 0;
 
         socket.on('createRoom', function(newRoom) 
         {
@@ -111,10 +113,14 @@ var express = require('express'),
             if(socket.room != null) leaveRoom(socket);
         });
 
-        socket.on('updatePosition', function(position) 
+        socket.on('updatePosition', function(data) 
         {
-            socket.x = position.x;
-            socket.y = position.y;
+            socket.position.x = data.position.x;
+            socket.position.y = data.position.y;
+            socket.velocity.x = data.velocity.x;
+            socket.velocity.y = data.velocity.y;
+
+            socket.rotation = data.rotation;
         });
     });
 
@@ -170,15 +176,14 @@ var express = require('express'),
         socket.broadcast.emit("refreshRoomList");
 
         //reset x,y
-        socket.x = 0;
-        socket.y = 0;
+        socket.position.x = socket.position.y = socket.velocity.x = socket.velocity.y = socket.rotation = 0;
     }
 
     var startGame = function(roomName)
     {
         io.sockets.in(roomName).emit('startGame');
         update(roomName);
-        rooms[roomName].interval = setInterval(function() { update(roomName); }, updateSpeed);
+        rooms[roomName].interval = setInterval(function() { update(roomName); }, 1000 / updateSpeed);
     }
 
     var endGame = function(roomName)
@@ -200,8 +205,17 @@ var express = require('express'),
         {
             players.push({
                 id: playersInRoom[p].id,
-                x: playersInRoom[p].x,
-                y: playersInRoom[p].y
+                rotation: playersInRoom[p].rotation,
+                position:
+                {
+                    x: playersInRoom[p].position.x,
+                    y: playersInRoom[p].position.y
+                },
+                velocity:
+                {
+                    x: playersInRoom[p].velocity.x,
+                    y: playersInRoom[p].velocity.y
+                }
             });
         }
         return players;
